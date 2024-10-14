@@ -6,12 +6,60 @@ output: github_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
 library(p8105.datasets)
+library(tidyverse)
+library(dplyr)
+library(ggridges)
+library(patchwork)
+
+knitr::opts_chunk$set(
+	echo = TRUE,
+	warning = FALSE,
+	fig.width = 8, 
+  fig.height = 6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+
+options(
+  ggplot2.continuous.colour = "viridis",
+  ggplot2.continuous.fill = "viridis"
+)
+
+scale_colour_discrete = scale_colour_viridis_d
+scale_fill_discrete = scale_fill_viridis_d
 ```
 
 # Problem 1
 ```{r Problem 1 load data}
 #load data from library
 data("ny_noaa")
+ny_noaa
+```
+The `ny_noaa` dataset contains `r nrow(ny_noaa)` rows and `r ncol(ny_noaa)` columns.The variables are weather station `id`, `date` of observation, percipitation `prcp` of the snow, snowfall (mm), snow depth (mm), minimum `tmin` and maximum `tmax` of the temperature (tenth of the Celsius degree).
+
+```{r Problem1 data cleaning}
+ny_noaa %>% 
+  count(snow) %>%
+  arrange(desc(n))
+
+ny_noaa %>% 
+  separate(date, into = c("year", "month", "day"), convert = TRUE) %>% 
+  mutate(
+    tmax = as.numeric(tmax),
+    tmin = as.numeric(tmin))
+```
+# Problem 2
+
+##### Read the demographic and MIMS datasets
+```{r Problem2 read datasets}
+mims_df = read_csv('./data/nhanes_accel.csv') %>% 
+  janitor::clean_names()
+demo_df = read_csv('./data/nhanes_covar.csv', skip = 4) %>% 
+  janitor::clean_names()
+
+merged_df = full_join(demo_df, mims_df, by = "SEQN") %>% 
+  filter(age >= 21)
+merged_df
 ```
