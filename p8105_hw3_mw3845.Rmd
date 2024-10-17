@@ -209,8 +209,8 @@ citi_full <- bind_rows(jan_2020, jan_2024, july_2020, july_2024) %>%
     member_casual = as.factor(member_casual)
   ) %>%
   na.omit()
-citi_full
 ```
+After importing and cleaning, the full dataset `citi_full` contains `r nrow(citi_full)` rows and `r ncol(citi_full)` columns. This dataset contains variable of member's information and records such as `ride_id`, `ridable_type`, `weekdays`, `duration` , etc. Since we combine the 4 datasets in different year and month, we label each observation with the year and month when the riding information got recorded. We convert `duration` to numeric variable and rest of the variables to factor variables, except for `ride_id`(it should stay as character variable).
 ##### Count Member and Causal by Year, Month
 ```{r Problem 3 number of rides in different member types}
 summary_table <- citi_full %>%
@@ -232,3 +232,20 @@ busy_stations <- citi_full %>%
 
 busy_stations
 ```
+
+##### Duration plot
+
+```{r Problem 3 duration plot}
+duration_plot <- citi_full %>%
+  mutate(weekdays = factor(weekdays, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))) %>%
+  group_by(year, month, weekdays) %>%
+  summarise(median_dur = median(duration)) %>%
+  ggplot(aes(x = weekdays, y = median_dur, fill = month)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~year) +
+  labs(title = "Median Ride Duration by Weekday, Month, and Year",
+       x = "Weekday", y = "Median Duration", fill = "Month")
+
+duration_plot
+```
+
