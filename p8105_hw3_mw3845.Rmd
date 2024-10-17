@@ -137,6 +137,7 @@ merged_df %>%
 ```
 
 ##### Plot of Total Activity
+We first take summation from `min1` to `min1440` to get the `total_act`. Then we plot the scatter plot and smooth curve for both male and female in three different panels of educational level. The sooth curve indicate that male with less than high school education is more active than female with less than high school education daily. And for population with high school or more than high school, the activity of female are higher than the one of male. As expected, the all population becomes less active as they age increases. And different educational level's population has different peak activity age.
 
 ```{r Problem 2 plot the total activity vs age}
 merged_df %>%
@@ -150,6 +151,7 @@ merged_df %>%
        y = "Total Activity")
 ```
 
+When looking at the smooth curve of male and female, their daily activity are quite similar for all three panels. Also, there is no significant difference of activity trend across different educational level.
 ```{r Problem 2 24 hour activity}
 long_df <- merged_df %>%
   pivot_longer(
@@ -173,7 +175,7 @@ ggplot(long_df, aes(x = minute, y = activity, color = factor(sex))) +
   ) 
 ```
 
-
+# Problem 3
 
 ##### Read and Clean All Datasets
 
