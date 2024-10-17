@@ -179,7 +179,7 @@ ggplot(long_df, aes(x = minute, y = activity, color = factor(sex))) +
 
 ##### Read and Clean All Datasets
 
-After importing and cleaning, the full dataset `citi_full` contains `r nrow(citi_full)` rows and `r ncol(citi_full)` columns. This dataset contains variable of member's information and records such as `ride_id`, `ridable_type`, `weekdays`, `duration` , etc. Since we combine the 4 datasets in different year and month, we label each observation with the year and month when the riding information got recorded. We convert `duration` to numeric variable and rest of the variables to factor variables, except for `ride_id`(it should stay as character variable).
+
 
 ```{r Problem 3 read and clean data}
 jan_2020 <- read.csv("./data/citibike/Jan 2020 Citi.csv") %>%
