@@ -39,27 +39,194 @@ ny_noaa
 ```
 The `ny_noaa` dataset contains `r nrow(ny_noaa)` rows and `r ncol(ny_noaa)` columns.The variables are weather station `id`, `date` of observation, percipitation `prcp` of the snow, snowfall (mm), snow depth (mm), minimum `tmin` and maximum `tmax` of the temperature (tenth of the Celsius degree).
 
+##### data cleaning
+
+In snowfall variable, we found that 0 is the most common value, indicating that there is no snow in NYC for most of the days in the year. `NA` is the second most common value in `snow` indicating that there is lots of missingness. We might need to investigate the reason for such amount of missingness before conducting more in-depth analysis.
+
 ```{r Problem1 data cleaning}
 ny_noaa %>% 
   count(snow) %>%
   arrange(desc(n))
 
-ny_noaa %>% 
+ny_noaa = 
+  ny_noaa %>% 
   separate(date, into = c("year", "month", "day"), convert = TRUE) %>% 
   mutate(
     tmax = as.numeric(tmax),
     tmin = as.numeric(tmin))
 ```
+
+##### Average tmax for January and July
+Below if a two-panel plot showing the maximum temps of January and July from all stations across the year. As expected, mean temperature in January is much lower than July. All stations appear to follow similar trends of temperature peaks and valleys within a month across the years. We do see one uncharacteristically cold station in July of 1987 or 1988, as well as a few other less drastic outliers.
+```{r Problem1 plot of max temperature in Jan and July}
+ny_noaa %>% 
+  group_by(id, year, month) %>% 
+  filter(month %in% c(1, 7)) %>% 
+  summarize(mean_tmax = mean(tmax, na.rm = TRUE, color = id)) %>% 
+  ggplot(aes(x = year, y = mean_tmax, group = id)) + geom_point() + geom_path() +
+  facet_grid(~month) +
+  labs(title = "Mean monthly temperature for each station across years for January and July")
+```
+
+Below we show a two-panel plot including (i) a hex plot of tmax vs tmin for the full dataset; and (ii) a ridge plot showing the distribution of snowfall values (in mm) greater than 0 and less than 100 separately by year.
+
+From the hex plot we see that while there is some variability, the majority of the data cluster tightly in the center of the distribution. In relatively rare cases, it seems that tmax is less than tmin, which raises questions about data recording and quality.
+
+From the ridge plot, we see a multimodal density of snowfall within a given year. Most stations see between 0 and 35 mm of snow in a year. Then there is a another group of stations that see about 45 mm of snow, and another group that sees nearly 80 mm. It is likely this multimodality stems from the conversion of measurements in one system (fractions of an inch) to another (using the metric system), which was also noted in the table of common values.
+
+##### hex of tmax vs tmin and ridges of snowfall
+
+```{r Problem 1 hex and ridges}
+#hex plot of tmax vs tmin
+hex = 
+  ny_noaa %>% 
+  ggplot(aes(x = tmin, y = tmax)) + 
+  geom_hex()
+#ridge plot of snowfall dist
+ridge = 
+  ny_noaa %>% 
+  filter(snow < 100, snow > 0) %>%
+  ggplot(aes(x = snow, y = as.factor(year))) + 
+  geom_density_ridges()
+
+hex + ridge
+```
 # Problem 2
 
-##### Read the demographic and MIMS datasets
-```{r Problem2 read datasets}
+##### Read and clean the demographic and MIMS datasets
+```{r Problem2 read and clean datasets}
 mims_df = read_csv('./data/nhanes_accel.csv') %>% 
   janitor::clean_names()
 demo_df = read_csv('./data/nhanes_covar.csv', skip = 4) %>% 
   janitor::clean_names()
 
-merged_df = full_join(demo_df, mims_df, by = "SEQN") %>% 
-  filter(age >= 21)
-merged_df
+merged_df = inner_join(demo_df, mims_df, by = "seqn") %>% 
+  filter(age >= 21) %>% 
+  drop_na(sex, age, bmi, education) %>% 
+  mutate(sex = factor(sex,
+                      levels = c(1, 2),
+                      labels = c("Male", "Female"),
+                      ordered = TRUE)) %>% 
+  mutate(education = factor(education,
+                            levels = c(1, 2, 3),
+                            labels = c("Less than high school", "High school equivalent", "More than high school"),
+                            ordered = TRUE))
+```
+
+##### Table and Visualization
+
+After cleaning the data, we want to create a user friendly table for the number of men and women in each education category. Then visualize the age distributions for men and women in each education category.
+
+The `sex_edu_table` contains ordered factor variable `education` and count of `Male` and `Female` for each educational levels. Then we use `geom_density` to visualize the age distribution for men and women in three different plots represents three education level.
+```{r Problem 2 sex-education table and visualization}
+sex_edu_table = merged_df %>% 
+  group_by(sex, education) %>%
+  summarise(count = n()) %>%
+  spread(key = sex, value = count)
+sex_edu_table
+merged_df %>%
+  select(education, age, sex) %>% 
+  ggplot(aes(x = age, fill = sex)) +
+  geom_density(alpha = 0.5) +
+  facet_grid(~ education) +
+  labs(title = "Age Density by Sex and Education Level",
+       x = "Age",
+       y = "Density",
+       fill = "Sex") +
+  viridis::scale_fill_viridis(discrete = TRUE)
+```
+
+##### Plot of Total Activity
+
+```{r Problem 2 plot the total activity vs age}
+merged_df %>%
+  mutate(total_act = rowSums(select(., min1:min1440))) %>% 
+  ggplot(aes(x = age, y = total_act, color = sex)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(se = FALSE) +
+  facet_wrap(~ education) +
+  labs(title = "Total Activity vs Age",
+       x = "Age",
+       y = "Total Activity")
+```
+
+```{r Problem 2 24 hour activity}
+long_df <- merged_df %>%
+  pivot_longer(
+    cols = starts_with("min"),
+    names_to = "minute",
+    names_prefix = "min",
+    values_to = "activity"
+  ) %>% 
+  mutate(minute = as.numeric(minute))
+
+# Create the plot
+ggplot(long_df, aes(x = minute, y = activity, color = factor(sex))) +
+  geom_point(alpha = 0.2) +
+  geom_smooth(se = FALSE) +
+  facet_wrap(~ education) +
+  labs(
+    x = "Hour of the Day",
+    y = "Mean Activity",
+    color = "Sex",
+    title = "24-Hour Activity Time Courses by Education Level and Sex"
+  ) 
+```
+
+
+
+##### Read and Clean All Datasets
+
+After importing and cleaning, the full dataset `citi_full` contains `r nrow(citi_full)` rows and `r ncol(citi_full)` columns. This dataset contains variable of member's information and records such as `ride_id`, `ridable_type`, `weekdays`, `duration` , etc. Since we combine the 4 datasets in different year and month, we label each observation with the year and month when the riding information got recorded. We convert `duration` to numeric variable and rest of the variables to factor variables, except for `ride_id`(it should stay as character variable).
+
+```{r Problem 3 read and clean data}
+jan_2020 <- read.csv("./data/citibike/Jan 2020 Citi.csv") %>%
+  mutate(year = as.factor(2020), month = as.factor(1)) %>%
+  janitor::clean_names() 
+
+jan_2024 <- read.csv("./data/citibike/Jan 2024 Citi.csv") %>%
+  mutate(year = as.factor(2024), month = as.factor(1)) %>%
+  janitor::clean_names()
+
+july_2020 <- read.csv("./data/citibike/July 2020 Citi.csv") %>%
+  mutate(year = as.factor(2020), month = as.factor(7)) %>%
+  janitor::clean_names()
+
+july_2024 <- read.csv("./data/citibike/July 2024 Citi.csv") %>%
+  mutate(year = as.factor(2024), month = as.factor(7)) %>%
+  janitor::clean_names()
+
+citi_full <- bind_rows(jan_2020, jan_2024, july_2020, july_2024) %>%
+  select(ride_id:rideable_type, year, month, everything()) %>% 
+  mutate(
+    rideable_type = as.factor(rideable_type),
+    weekdays = as.factor(weekdays),
+    duration = as.numeric(duration),
+    start_station_name = as.factor(start_station_name),
+    end_station_name = as.factor(end_station_name),
+    member_casual = as.factor(member_casual)
+  ) %>%
+  na.omit()
+citi_full
+```
+##### Count Member and Causal by Year, Month
+```{r Problem 3 number of rides in different member types}
+summary_table <- citi_full %>%
+  group_by(year, month, member_casual) %>%
+  summarise(total_rides = n()) %>%
+  pivot_wider(names_from = member_casual, values_from = total_rides, names_prefix = "num_")
+
+summary_table
+```
+##### Busy Station of July 2024
+
+```{r Problem 3 find busy stations}
+busy_stations <- citi_full %>%
+  filter(year == 2024, month == 7) %>%
+  group_by(start_station_name) %>%
+  summarise(num_rides = n()) %>%
+  arrange(desc(num_rides)) %>%
+  slice_head(n = 5)
+
+busy_stations
 ```
